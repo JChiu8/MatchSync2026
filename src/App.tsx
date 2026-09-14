@@ -494,9 +494,19 @@ function Viewer() {
       seek(1, offsets[1]);
       positionRef.current = 0;
     }
+    const mobile =
+      window.matchMedia("(pointer: coarse)").matches ||
+      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
     refs.current.forEach((player) => {
-      if (playing) void player?.pauseVideo();
-      else void player?.playVideo();
+      if (playing) {
+        void player?.pauseVideo();
+      } else {
+        // Mobile browsers allow multiple players to start from one gesture
+        // when they begin muted. Scouts can use either YouTube player's own
+        // audio control if they want sound.
+        if (mobile) void player?.mute();
+        void player?.playVideo();
+      }
     });
     setPlaying(!playing);
   };
