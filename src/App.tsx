@@ -60,9 +60,11 @@ function Header() {
     <header className="border-b border-white/10 bg-[#08090c]/90">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
         <Link to="/" className="flex items-center gap-3">
-          <span className="grid size-9 place-items-center rounded-xl bg-red-600 font-black italic text-white">
-            6
-          </span>
+          <img
+            src={`${import.meta.env.BASE_URL}robotics2022.png`}
+            alt="Robotics team logo"
+            className="size-9 rounded-xl object-cover"
+          />
           <span className="font-display text-lg font-bold text-white">
             6696 <span className="text-red-500">MatchSync</span>
           </span>
