@@ -32,7 +32,9 @@ jobs:
       - name: Build frontend
         run: bun run build
         env:
-          VITE_CONVEX_URL: ${{ secrets.VITE_CONVEX_URL }}
+          # Keep Pages pointed at the Convex deployment that receives the
+          # current backend functions during `bun run start`.
+          VITE_CONVEX_URL: https://friendly-cuttlefish-405.convex.cloud
 
       - name: Preserve SPA routes
         run: cp dist/index.html dist/404.html
