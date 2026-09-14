@@ -41,8 +41,9 @@ type Match = {
   alliance: "red" | "blue";
   score: number;
   opponentScore: number;
-  videoId: string;
+  videos: VideoOption[];
 };
+type VideoOption = { videoId: string; channelName: string };
 function Header() {
   return (
     <header className="border-b border-white/10 bg-[#08090c]/90">
@@ -159,8 +160,8 @@ function Picker({
             <Trophy className="size-3.5" />
             {value.score} – {value.opponentScore}
             <span className="ml-auto">
-              <Video className="mr-1 inline size-3.5" />
-              Video ready
+          <Video className="mr-1 inline size-3.5" />
+              {value.videos.length} video{value.videos.length === 1 ? "" : "s"} ready
             </span>
           </div>
         </div>
@@ -284,36 +285,44 @@ function VideoCard({
   current: number;
   offset: number;
   poster: boolean;
-  onReady: (player: YouTubePlayer) => void;
+  onReady: (player: YouTubePlayer | null) => void;
   activate: () => void;
   setOffset: (n: number) => void;
   setAuto: () => void;
   stepFrame: (n: number) => void;
   stepSecond: (n: number) => void;
 }) {
+  const [selectedVideo, setSelectedVideo] = useState<VideoOption | null>(
+    match.videos.length === 1 ? match.videos[0] : null,
+  );
+  const hasSelection = selectedVideo !== null;
+
   return (
     <div>
       <div className="relative aspect-video overflow-hidden rounded-2xl border border-white/10 bg-black">
         <div className="absolute left-3 top-3 z-30 rounded-lg bg-black/60 px-2.5 py-1 text-[10px] font-black uppercase tracking-widest text-white">
           {match.eventName}
         </div>
-        <YouTube
-          videoId={match.videoId}
-          title="Match video"
-          className="h-full w-full"
-          iframeClassName="h-full w-full"
-          opts={{
-            width: "100%",
-            height: "100%",
-            playerVars: { playsinline: 1, rel: 0 },
-          }}
-          onReady={(event) => onReady(event.target)}
-        />
-        {poster ? (
+        {hasSelection ? (
+          <YouTube
+            key={selectedVideo.videoId}
+            videoId={selectedVideo.videoId}
+            title={`Match video from ${selectedVideo.channelName}`}
+            className="h-full w-full"
+            iframeClassName="h-full w-full"
+            opts={{
+              width: "100%",
+              height: "100%",
+              playerVars: { playsinline: 1, rel: 0 },
+            }}
+            onReady={(event) => onReady(event.target)}
+          />
+        ) : null}
+        {poster && hasSelection ? (
           <div className="absolute inset-0 z-20 bg-black">
             <img
-              src={`https://i.ytimg.com/vi/${match.videoId}/hqdefault.jpg`}
-              alt="Match video thumbnail"
+              src={`https://i.ytimg.com/vi/${selectedVideo.videoId}/hqdefault.jpg`}
+              alt={`Thumbnail from ${selectedVideo.channelName}`}
               className="h-full w-full object-cover opacity-80"
             />
             <button
@@ -324,7 +333,7 @@ function VideoCard({
               Load player
             </button>
             <a
-              href={`https://www.youtube.com/watch?v=${match.videoId}`}
+              href={`https://www.youtube.com/watch?v=${selectedVideo.videoId}`}
               target="_blank"
               rel="noreferrer"
               className="absolute bottom-4 right-4 rounded-xl border border-white/20 bg-black/60 px-3 py-2.5 text-xs font-bold text-white"
@@ -333,8 +342,60 @@ function VideoCard({
             </a>
           </div>
         ) : null}
+        {!hasSelection ? (
+          <div className="absolute inset-0 z-20 flex flex-col justify-center bg-[#111318] p-5">
+            <p className="text-xs font-black uppercase tracking-widest text-red-300">
+              Choose a video
+            </p>
+            <p className="mt-2 text-sm text-zinc-400">
+              Select the angle you want to use before loading its thumbnail.
+            </p>
+            <div className="mt-4 grid gap-2 sm:grid-cols-2">
+              {match.videos.map((video, index) => (
+                <button
+                  key={video.videoId}
+                  type="button"
+                  onClick={() => {
+                    onReady(null);
+                    setSelectedVideo(video);
+                  }}
+                  className="rounded-xl border border-white/10 bg-white/[0.06] p-3 text-left hover:border-red-400/70 hover:bg-red-500/10"
+                >
+                  <span className="block text-[10px] font-black uppercase tracking-widest text-zinc-500">
+                    Video {index + 1}
+                  </span>
+                  <span className="mt-1 block truncate text-sm font-bold text-white">
+                    {video.channelName}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : null}
       </div>
       <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+        <div className="mb-2 flex items-center justify-between gap-2 text-xs">
+          <span className="text-zinc-500">
+            Source <span className="font-bold text-zinc-200">{selectedVideo?.channelName ?? "Choose a video"}</span>
+          </span>
+          {match.videos.length > 1 ? (
+            <div className="flex flex-wrap gap-1">
+              {match.videos.map((video, index) => (
+                <button
+                  key={video.videoId}
+                  type="button"
+                  onClick={() => {
+                    onReady(null);
+                    setSelectedVideo(video);
+                  }}
+                  className={`rounded-md px-2 py-1 font-bold ${selectedVideo?.videoId === video.videoId ? "bg-red-500/20 text-red-200" : "text-zinc-500 hover:text-zinc-200"}`}
+                >
+                  {index + 1}
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </div>
         <div className="flex flex-wrap justify-between gap-2 text-xs">
           <span className="text-zinc-500">
             Current{" "}
@@ -361,25 +422,25 @@ function VideoCard({
             amount={-1}
             text="−1f"
             label="Previous frame for this video"
-            onStep={stepFrame}
+            onStep={(n) => hasSelection && stepFrame(n)}
           />
           <HoldButton
             amount={1}
             text="+1f"
             label="Next frame for this video"
-            onStep={stepFrame}
+            onStep={(n) => hasSelection && stepFrame(n)}
           />
           <HoldButton
             amount={-1}
             text="−1s"
             label="Back one second for this video"
-            onStep={stepSecond}
+            onStep={(n) => hasSelection && stepSecond(n)}
           />
           <HoldButton
             amount={1}
             text="+1s"
             label="Forward one second for this video"
-            onStep={stepSecond}
+            onStep={(n) => hasSelection && stepSecond(n)}
           />
           <span className="text-[10px] uppercase tracking-widest text-zinc-600">
             hold to scan

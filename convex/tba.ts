@@ -20,6 +20,21 @@ type TbaMatch = {
 
 type TbaEvent = { key: string; name: string; city?: string; state_prov?: string };
 
+type YouTubeOembed = { author_name?: string };
+
+async function getYouTubeChannelName(videoId: string): Promise<string> {
+  try {
+    const response = await fetch(
+      `https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`,
+    );
+    if (!response.ok) return "YouTube channel";
+    const metadata = (await response.json()) as YouTubeOembed;
+    return metadata.author_name?.trim() || "YouTube channel";
+  } catch {
+    return "YouTube channel";
+  }
+}
+
 async function tbaFetch<T>(path: string): Promise<T> {
   const response = await fetch(`https://www.thebluealliance.com/api/v3${path}`, {
     headers: { "X-TBA-Auth-Key": TBA_API_KEY, "User-Agent": "6696-MatchSync/1.0" },
@@ -41,7 +56,10 @@ export const listTeamMatches = action({
     alliance: v.union(v.literal("red"), v.literal("blue")),
     score: v.number(),
     opponentScore: v.number(),
-    videoId: v.union(v.string(), v.null()),
+    videos: v.array(v.object({
+      videoId: v.string(),
+      channelName: v.string(),
+    })),
   })),
   handler: async (_ctx, args) => {
     const teamNumber = args.teamNumber.trim().replace(/^frc/i, "");
@@ -52,16 +70,19 @@ export const listTeamMatches = action({
     const eventKeys = [...new Set(matches.map((match) => match.event_key))];
     const events = await Promise.all(eventKeys.map((eventKey) => tbaFetch<TbaEvent>(`/event/${eventKey}`)));
     const eventMap = new Map(events.map((event) => [event.key, event]));
-    return matches
+    return await Promise.all(matches
       .filter((match) => match.comp_level !== "other" && match.videos?.some((video) => video.type === "youtube"))
       .sort((a, b) => a.time - b.time)
-      .map((match) => {
+      .map(async (match) => {
         const alliance = match.alliances.red.team_keys.includes(teamKey) ? "red" : "blue";
         const own = match.alliances[alliance];
         const opponent = match.alliances[alliance === "red" ? "blue" : "red"];
         const event = eventMap.get(match.event_key);
         const level = match.comp_level === "qm" ? "Qualification" : match.comp_level === "sf" ? "Semifinal" : match.comp_level === "f" ? "Final" : match.comp_level.toUpperCase();
         const matchLabel = match.comp_level === "sf" ? `${level} ${match.set_number}` : `${level} ${match.match_number}`;
+        const youtubeVideos = (match.videos ?? [])
+          .filter((video) => video.type === "youtube")
+          .map((video) => video.key);
         return {
           key: match.key,
           eventKey: match.event_key,
@@ -73,8 +94,13 @@ export const listTeamMatches = action({
           alliance: alliance as "red" | "blue",
           score: own.score,
           opponentScore: opponent.score,
-          videoId: match.videos?.find((video) => video.type === "youtube")?.key ?? null,
+          videos: await Promise.all(
+            youtubeVideos.map(async (videoId) => ({
+              videoId,
+              channelName: await getYouTubeChannelName(videoId),
+            })),
+          ),
         };
-      });
+      }));
   },
 });
