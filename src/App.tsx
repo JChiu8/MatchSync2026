@@ -44,6 +44,17 @@ type Match = {
   videos: VideoOption[];
 };
 type VideoOption = { videoId: string; channelName: string };
+
+function normalizeMatch(match: Match & { videoId?: string | null }): Match {
+  return {
+    ...match,
+    videos:
+      match.videos ??
+      (match.videoId
+        ? [{ videoId: match.videoId, channelName: "YouTube channel" }]
+        : []),
+  };
+}
 function Header() {
   return (
     <header className="border-b border-white/10 bg-[#08090c]/90">
@@ -81,7 +92,11 @@ function Picker({
     setBusy(true);
     try {
       const result = await action({ teamNumber: team, year: 2026 });
-      setRows(result as Match[]);
+      setRows(
+        (result as Array<Match & { videoId?: string | null }>).map(
+          normalizeMatch,
+        ),
+      );
       setValue(null);
     } catch (error) {
       toast.error(
