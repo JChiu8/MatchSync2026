@@ -635,10 +635,13 @@ function Viewer() {
     </div>
   );
 }
-const router = createBrowserRouter([
-  { path: "/", element: <Setup /> },
-  { path: "/view", element: <Viewer /> },
-]);
+const router = createBrowserRouter(
+  [
+    { path: "/", element: <Setup /> },
+    { path: "/view", element: <Viewer /> },
+  ],
+  { basename: import.meta.env.BASE_URL },
+);
 export default function App() {
   return (
     <ConvexProvider client={convex}>
